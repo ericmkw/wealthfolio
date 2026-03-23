@@ -1,0 +1,38 @@
+services:
+  portal-db:
+    image: postgres:16-alpine
+    container_name: wealthfolio-portal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wealthfolio_investor_portal
+      POSTGRES_USER: wealthfolio
+      POSTGRES_PASSWORD: wealthfolio
+    volumes:
+      - portal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wealthfolio -d wealthfolio_investor_portal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  portal-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wealthfolio-investor-portal
+    restart: unless-stopped
+    depends_on:
+      portal-db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://wealthfolio:wealthfolio@portal-db:5432/wealthfolio_investor_portal
+      PUBLISH_TMP_DIR: /app/tmp/publish
+    volumes:
+      - ./tmp:/app/tmp
+    ports:
+      - "3001:3000"
+
+volumes:
+  portal-postgres-data:
