@@ -28,20 +28,18 @@ Read-only investor reporting portal for a dual-Wealthfolio fund workflow.
 docker compose -f compose.yml up --build -d
 ```
 
-4. Run migrations:
+4. Wait for the app container to finish its automatic database init:
 
 ```bash
-npm install
-npm run db:migrate
+docker compose -f compose.yml logs -f portal-app
 ```
 
-5. Seed the admin account:
+5. Open [http://localhost:3001](http://localhost:3001)
 
-```bash
-ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=change-me npm run db:seed
-```
+Docker startup now does both automatically:
 
-6. Open [http://localhost:3001](http://localhost:3001)
+- Runs all SQL migrations
+- Creates or refreshes the admin account from `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
 
 ## Local development
 
@@ -66,3 +64,4 @@ npm run dev
 - `Distribution` contributes investor NAV, units, performance, and personal cashflows
 - Shares, total value, and position size are never exposed in the fund activity UI or API
 - For local testing on your Mac, `/admin/publish` also accepts absolute backup `.db` paths directly if the Node process can read them
+- For UGOS Pro / NAS deployment, see `docs/deploy-ugos-pro-nas.md`
