@@ -12,13 +12,15 @@ import {
 import { requireUser } from "@/lib/auth/server";
 import { getMessages } from "@/lib/i18n";
 import { getResolvedPreferences } from "@/lib/preferences";
+import { resolveMappingLabels } from "@/lib/source-option-labels";
 import { listInvestorMappings } from "@/lib/services/admin-service";
+import { getAdminSourceOptions } from "@/lib/services/source-options-service";
 
 export default async function AdminInvestorsPage() {
   const user = await requireUser("admin");
   const preferences = await getResolvedPreferences(user.id);
   const messages = getMessages(preferences.locale);
-  const mappings = await listInvestorMappings();
+  const [mappings, sourceOptions] = await Promise.all([listInvestorMappings(), getAdminSourceOptions()]);
 
   return (
     <AppShell
@@ -48,15 +50,25 @@ export default async function AdminInvestorsPage() {
               </TableHeader>
               <TableBody>
                 {mappings.length ? (
-                  mappings.map((mapping) => (
-                    <TableRow key={mapping.investorId}>
-                      <TableCell>{mapping.investorName}</TableCell>
-                      <TableCell>{mapping.username ?? "—"}</TableCell>
-                      <TableCell>{mapping.email ?? "—"}</TableCell>
-                      <TableCell>{mapping.distributionAccountId ?? "—"}</TableCell>
-                      <TableCell>{mapping.fundAssetId ?? "—"}</TableCell>
-                    </TableRow>
-                  ))
+                  mappings.map((mapping) => {
+                    const labels = resolveMappingLabels(sourceOptions.accounts, sourceOptions.fundAssets, mapping);
+
+                    return (
+                      <TableRow key={mapping.investorId}>
+                        <TableCell>{mapping.investorName}</TableCell>
+                        <TableCell>{mapping.username ?? "—"}</TableCell>
+                        <TableCell>{mapping.email ?? "—"}</TableCell>
+                        <TableCell>
+                          {labels.distributionAccountLabel ?? "Unknown account"}
+                          <div className="text-xs text-[var(--wf-muted)]">{mapping.distributionAccountId ?? "—"}</div>
+                        </TableCell>
+                        <TableCell>
+                          {labels.fundAssetLabel ?? "Unknown asset"}
+                          <div className="text-xs text-[var(--wf-muted)]">{mapping.fundAssetId ?? "—"}</div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell className="text-[var(--wf-muted)]" colSpan={5}>

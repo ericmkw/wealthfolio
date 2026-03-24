@@ -19,6 +19,11 @@ interface SourceOptionsResponse {
   fundAssets: SourceOption[];
 }
 
+interface MappingSaveResponse {
+  distributionAccountLabel?: string;
+  fundAssetLabel?: string;
+}
+
 const selectClassName =
   "flex h-11 w-full rounded-md border border-[var(--wf-border)] bg-[var(--wf-card)] px-3 py-2 text-sm text-[var(--wf-fg)] outline-none focus:border-[var(--wf-accent)]";
 
@@ -38,6 +43,7 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
   const [accounts, setAccounts] = useState<SourceOption[]>([]);
   const [fundAssets, setFundAssets] = useState<SourceOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -86,6 +92,7 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setSavedMessage(null);
     setIsSaving(true);
 
     const response = await fetch("/api/admin/investor-account-mappings", {
@@ -103,6 +110,8 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
       return;
     }
 
+    const body = (await response.json().catch(() => null)) as MappingSaveResponse | null;
+
     setForm({
       name: "",
       username: "",
@@ -113,6 +122,11 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
     });
     setAccountSearch("");
     setAssetSearch("");
+    setSavedMessage(
+      body?.distributionAccountLabel && body?.fundAssetLabel
+        ? `Saved mapping: ${body.distributionAccountLabel} / ${body.fundAssetLabel}`
+        : "Investor mapping saved.",
+    );
     router.refresh();
     setIsSaving(false);
   };
@@ -225,6 +239,7 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
             )}
           </div>
           {error ? <p className="md:col-span-2 text-sm text-rose-300">{error}</p> : null}
+          {savedMessage ? <p className="md:col-span-2 text-sm text-emerald-300">{savedMessage}</p> : null}
           <div className="md:col-span-2">
             <Button type="submit" disabled={isSaving}>
               {isSaving ? messages.admin.savingInvestor : messages.admin.saveInvestor}

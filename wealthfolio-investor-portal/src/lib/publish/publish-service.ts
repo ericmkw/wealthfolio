@@ -10,6 +10,8 @@ import {
   investorPositionSnapshots,
   publishRuns,
   publishedFundHoldings,
+  publishedDistributionAccounts,
+  publishedDistributionAssets,
   publishedVersions,
   quoteReferenceSnapshots,
   unitPriceSnapshots,
@@ -22,7 +24,9 @@ import { extractFundOperationEvents } from "@/lib/publish/master-transform";
 import {
   readLatestAssetQuoteSnapshots,
   openReadonlySnapshot,
+  readDistributionAccounts,
   readDistributionActivities,
+  readDistributionFundAssets,
   readLatestFundQuoteReferences,
   readLatestFxQuoteReferences,
   readDistributionQuotes,
@@ -93,6 +97,8 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
 
     try {
       const fundOperations = extractFundOperationEvents(readMasterActivityRows(masterDb));
+      const distributionAccounts = readDistributionAccounts(distributionDb);
+      const distributionFundAssets = readDistributionFundAssets(distributionDb);
       const uniqueFundAssetIds = [...new Set(mappings.map((mapping) => mapping.fundAssetId))];
       const latestFxQuotes = readLatestFxQuoteReferences(distributionDb);
       const quoteReferences = [
@@ -157,6 +163,28 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
           distributionSnapshotFilename: path.basename(distributionSnapshotPath),
           isCurrent: true,
         });
+
+        if (distributionAccounts.length) {
+          await tx.insert(publishedDistributionAccounts).values(
+            distributionAccounts.map((account) => ({
+              id: randomUUID(),
+              publishedVersionId,
+              accountId: account.id,
+              accountName: account.label,
+            })),
+          );
+        }
+
+        if (distributionFundAssets.length) {
+          await tx.insert(publishedDistributionAssets).values(
+            distributionFundAssets.map((asset) => ({
+              id: randomUUID(),
+              publishedVersionId,
+              assetId: asset.id,
+              label: asset.label,
+            })),
+          );
+        }
 
         if (fundHoldingsProjection.holdings.length) {
           await tx.insert(publishedFundHoldings).values(

@@ -3,9 +3,15 @@ import { z } from "zod";
 const portalEnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
   MASTER_BASE_URL: z.string().url(),
-  MASTER_PASSWORD: z.string().min(1),
+  MASTER_PASSWORD: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
   DISTRIBUTION_BASE_URL: z.string().url(),
-  DISTRIBUTION_PASSWORD: z.string().min(1),
+  DISTRIBUTION_PASSWORD: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
   PUBLISH_TMP_DIR: z.string().min(1),
   SESSION_COOKIE_SECRET: z.string().min(16),
 });

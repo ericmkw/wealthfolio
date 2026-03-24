@@ -234,6 +234,46 @@ export function readDistributionQuotes(database: Database.Database, fundAssetId:
     .all(fundAssetId) as DistributionQuoteRow[];
 }
 
+export function readDistributionAccounts(database: Database.Database) {
+  return database
+    .prepare(
+      `
+        SELECT id, name
+        FROM accounts
+        WHERE is_active = 1
+        ORDER BY name ASC
+      `,
+    )
+    .all()
+    .map((row) => ({
+      id: String((row as { id: string }).id),
+      label: String((row as { name: string }).name),
+    })) as { id: string; label: string }[];
+}
+
+export function readDistributionFundAssets(database: Database.Database) {
+  return database
+    .prepare(
+      `
+        SELECT
+          id,
+          COALESCE(display_code, instrument_symbol, name, id) AS code,
+          name
+        FROM assets
+        WHERE is_active = 1
+        ORDER BY name ASC
+      `,
+    )
+    .all()
+    .map((row) => {
+      const asset = row as { id: string; code: string | null; name: string | null };
+      return {
+        id: asset.id,
+        label: asset.code && asset.name ? `${asset.code} - ${asset.name}` : asset.name ?? asset.id,
+      };
+    }) as { id: string; label: string }[];
+}
+
 export function readLatestAssetQuoteSnapshots(database: Database.Database, assetIds: string[]) {
   if (!assetIds.length) {
     return [] as AssetQuoteSnapshot[];

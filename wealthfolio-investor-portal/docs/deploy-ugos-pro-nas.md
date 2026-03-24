@@ -1,122 +1,259 @@
 # UGOS Pro NAS Deploy Guide
 
-This guide assumes you will deploy the portal with the UGOS Pro Docker app using a Docker Compose project.
+This guide uses the simpler deployment model:
 
-## What gets deployed
+- build the app image on your Mac first
+- copy only the Docker image tar + compose/env files to the NAS
+- run the portal on the NAS without copying `src/` or the full project
 
-- `portal-db`: PostgreSQL 16
-- `portal-app`: Next.js investor portal
+## Recommended deployment model
 
-On container startup, `portal-app` will automatically:
+For your use case, there are two possible Docker flows:
 
-1. Run database migrations
-2. Create or update the admin login from env vars
-3. Start the web server
+### 1. Build on the NAS
 
-That means you do **not** need to enter the container to run `db:migrate` or `db:seed`.
+The NAS receives the whole project folder and runs Docker build there.
 
-## Recommended NAS folder layout
+That means the NAS needs:
 
-Create one project folder on the NAS, for example:
-
-```text
-/volume1/docker/wealthfolio-investor-portal/
-├── compose.yml
-├── .env
-└── tmp/
-```
-
-If you prefer keeping local Wealthfolio backup files on the NAS for manual testing, you can also prepare:
-
-```text
-/volume1/docker/wealthfolio-backups/master/
-/volume1/docker/wealthfolio-backups/distribution/
-```
-
-## 1. Get the project onto the NAS
-
-Choose one:
-
-- Clone the repo onto the NAS
-- Or copy the `wealthfolio-investor-portal` folder from your Mac to the NAS
-
-At minimum, keep these files together:
-
-- `compose.yml`
 - `Dockerfile`
-- `.env`
 - `package.json`
 - `package-lock.json`
 - `src/`
 - `public/`
 - `scripts/`
 
-## 2. Create the env file
+This works, but it is not the simplest setup.
+
+### 2. Prebuilt image on your Mac
+
+Your Mac builds the final app image first.  
+The NAS only receives:
+
+- one Docker image tar file
+- `compose.nas.yml`
+- `docker-compose.yaml`
+- `compose.yml`
+- `.env`
+- `tmp/` folder
+
+This is the recommended approach here.
+
+UGOS Pro has one extra rule here:
+
+- the image should be imported into the local **Images** list first
+- the Compose service should use the literal imported image name directly
+- the app service should set `pull_policy: never` so UGOS does not try to fetch from a remote registry
+
+## What you need on the NAS
+
+Create one folder on the NAS, for example:
+
+```text
+/volume1/docker/wealthfolio-investor-portal/
+├── compose.nas.yml
+├── .env
+└── tmp/
+```
+
+That is enough for deployment.
+
+You do **not** need to copy:
+
+- `src/`
+- `Dockerfile`
+- `package.json`
+
+when you use the prebuilt image flow.
+
+## Step 1: Build the image on your Mac
+
+From the portal folder on your Mac:
+
+```bash
+cd /Users/ericma/Developer/GitHub/wealthfolio/wealthfolio-investor-portal
+./scripts/export-nas-image.sh
+```
+
+Default output:
+
+```text
+/Users/ericma/Developer/GitHub/wealthfolio/wealthfolio-investor-portal/dist/wealthfolio-investor-portal-latest.tar
+```
+
+Default image name:
+
+```text
+wealthfolio-investor-portal:latest
+```
+
+Default NAS copy target:
+
+```text
+/Volumes/docker/wealthfolio-investor-portal-1
+```
+
+If that SMB path is mounted on your Mac, the script will automatically copy:
+
+- the exported `.tar`
+- `compose.nas.yml`
+- `docker-compose.yaml`
+- `compose.yml`
+
+into that NAS folder for you.
+
+## Step 2: Check NAS CPU architecture
+
+If your NAS is x86_64 / Intel, the default script setting is correct:
+
+```text
+TARGET_PLATFORM=linux/amd64
+```
+
+If you want to confirm, run on the NAS:
+
+```bash
+uname -m
+```
+
+Common results:
+
+- `x86_64` → use `linux/amd64`
+- `aarch64` → use `linux/arm64`
+
+If your NAS is ARM, rebuild on your Mac like this:
+
+```bash
+TARGET_PLATFORM=linux/arm64 ./scripts/export-nas-image.sh
+```
+
+## Step 3: Copy files to the NAS
+
+Copy these items to the NAS project folder:
+
+- `compose.nas.yml`
+- `docker-compose.yaml`
+- `compose.yml`
+- `.env`
+- the exported `.tar` image file
+
+Also create:
+
+- `tmp/`
+
+## Step 4: Import the image in the UGOS Docker app
+
+In UGOS Pro:
+
+1. open the **Docker** app
+2. go to **Images**
+3. click **Import**
+4. upload `wealthfolio-investor-portal-latest.tar`
+5. wait for the image to appear in the local image list
+
+After import, check the exact local image name shown in UGOS.
+
+Example:
+
+```text
+wealthfolio-investor-portal:latest
+```
+
+The NAS compose file already points directly to:
+
+```text
+wealthfolio-investor-portal:latest
+```
+
+For normal updates, keep importing that same tag so you do not need to edit compose every time.
+
+## Step 5: Prepare `.env`
 
 Start from `.env.example` and save it as `.env`.
 
-Minimum required values:
+Recommended values:
 
 ```env
 DATABASE_URL=postgres://wealthfolio:wealthfolio@portal-db:5432/wealthfolio_investor_portal
 MASTER_BASE_URL=http://YOUR_MASTER_IP:8088
-MASTER_PASSWORD=YOUR_MASTER_PASSWORD
+MASTER_PASSWORD=
 DISTRIBUTION_BASE_URL=http://YOUR_DISTRIBUTION_IP:8089
-DISTRIBUTION_PASSWORD=YOUR_DISTRIBUTION_PASSWORD
+DISTRIBUTION_PASSWORD=
 PUBLISH_TMP_DIR=/app/tmp/publish
 SESSION_COOKIE_SECRET=CHANGE-THIS-TO-A-LONG-RANDOM-STRING
 ADMIN_USERNAME=admin
 ADMIN_EMAIL=
 ADMIN_PASSWORD=1234
+PORTAL_APP_IMAGE=wealthfolio-investor-portal:latest
 ```
 
 Notes:
 
-- `DATABASE_URL` should stay pointed at `portal-db` inside Docker Compose
+- `DATABASE_URL` should stay pointed at `portal-db`
 - `PUBLISH_TMP_DIR` should stay `/app/tmp/publish`
-- `SESSION_COOKIE_SECRET` should be at least 16 characters, but use a long random string in production
-- `ADMIN_PASSWORD=1234` matches the current local setup you asked for
+- Leave `MASTER_PASSWORD` / `DISTRIBUTION_PASSWORD` empty if that Wealthfolio instance runs with `WF_AUTH_REQUIRED=false`
+- Keep both `MASTER_BASE_URL` and `DISTRIBUTION_BASE_URL` because the portal still talks to two separate source instances, usually with different ports
 
-## 3. Keep `compose.yml` in the same folder
+## Step 6: Optional terminal import method
 
-The included `compose.yml` already:
+On the NAS, go into the folder that contains the tar file and run:
 
-- Builds the app image locally on the NAS
-- Starts PostgreSQL
-- Waits for DB health before starting `portal-app`
-- Mounts `./tmp` into `/app/tmp`
-- Exposes the portal at port `3001`
-
-Default URL after startup:
-
-```text
-http://NAS-IP:3001
+```bash
+docker load -i wealthfolio-investor-portal-latest.tar
 ```
 
-## 4. Deploy with the UGOS Docker app
+You can check the image exists:
 
-Typical flow in UGOS Pro:
+```bash
+docker images | grep wealthfolio-investor-portal
+```
 
-1. Open **Docker**
-2. Create a **Project**
-3. Point it to `/volume1/docker/wealthfolio-investor-portal/compose.yml`
-4. Confirm the `.env` file is in the same folder
-5. Click **Deploy / Start**
+If you already imported the tar from the UGOS **Images** page, you do not need this terminal import step.
 
-If UGOS asks whether to build locally, allow it.
+## Step 7: Deploy on the NAS
 
-## 5. First boot checks
+Use the UGOS Docker app or terminal-based Docker Compose.
 
-After containers start, check the `portal-app` logs.
+If using terminal:
 
-You want to see lines similar to:
+```bash
+docker compose -f compose.nas.yml up -d
+```
+
+If using the UGOS Docker app:
+
+1. Create a Docker project
+2. Point it to the updated compose file in the folder
+3. Make sure `.env` is in the same folder
+4. Make sure the imported local image name matches `PORTAL_APP_IMAGE`
+5. Start the project
+
+If UGOS silently prefers `docker-compose.yaml` or `compose.yml`, that is fine because the export script writes the same content to all three filenames.
+
+`compose.nas.yml` already sets:
+
+```yaml
+pull_policy: never
+```
+
+so UGOS should use only the local image and skip remote pulling for `portal-app`.
+
+## Step 8: First boot check
+
+After startup, check logs:
+
+```bash
+docker compose -f compose.nas.yml logs -f portal-app
+```
+
+You want to see something like:
 
 ```text
 [init] applied migration ...
 [init] created admin account admin
 ```
 
-Or, on later restarts:
+or on later restarts:
 
 ```text
 [init] refreshed admin account admin
@@ -128,80 +265,75 @@ Then open:
 http://NAS-IP:3001/login
 ```
 
-Default admin login:
+Default login:
 
 - Username: `admin`
 - Password: `1234`
 
-## 6. First actions after login
+## What happens automatically
 
-1. Go to `/admin/investors`
-2. Create each investor account
-3. Set the `Distribution Account` mapping
-4. Set the `Fund Asset` mapping
-5. Go to `/admin/publish`
-6. Run a publish
+When `portal-app` starts, it will automatically:
 
-If both Wealthfolio instances are reachable from the NAS, the publish flow will:
+1. connect to PostgreSQL
+2. run DB migrations
+3. create or refresh the admin account
+4. start the web app
 
-- Log into both instances
-- Trigger each backup route
-- Download backup DB snapshots
-- Rebuild the Postgres published view
+So you do **not** need to manually enter the container to run migration or seed commands.
 
-## 7. Network requirements
+## What `tmp/` is for
 
-The NAS must be able to reach:
+`tmp/` is only a temporary working folder used during publish.
 
-- `MASTER_BASE_URL`
-- `DISTRIBUTION_BASE_URL`
+The portal uses it to:
 
-If your Wealthfolio instances run on another machine in the same LAN, test from the NAS side first.
+1. store the downloaded Master backup snapshot
+2. store the downloaded Distribution backup snapshot
+3. read those snapshots into Postgres
+4. remove the temp files afterwards
 
-Examples:
+It is not the main database and it does not store investor-facing portal data long term.
 
-- `http://192.168.5.14:8088`
-- `http://192.168.5.14:8089`
+## Updating later
 
-## 8. Updating the portal later
+When you have a new version:
 
-When you pull new code:
+1. rebuild and export a new tar on your Mac
+2. import the new tar into UGOS **Images** or run `docker load -i ...` on the NAS
+3. confirm the local image tag still matches `PORTAL_APP_IMAGE`
+4. restart the compose project
 
-1. Replace or `git pull` the portal folder on the NAS
-2. Rebuild the project in UGOS / Docker Compose
-3. Start again
+Use a one-off unique tag only when you are debugging image cache problems.
 
-The app container will re-run migrations automatically, so schema updates are applied on boot.
+## Troubleshooting
 
-## 9. Troubleshooting
-
-### App container restarts immediately
+### Login fails
 
 Check:
 
-- `DATABASE_URL` is valid
-- `portal-db` is healthy
-- `SESSION_COOKIE_SECRET` is set
+- the app logs show the init message
+- `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env`
+
+Restarting `portal-app` will refresh the admin password from `.env`.
 
 ### Publish fails
 
 Check:
 
-- `MASTER_BASE_URL` / `DISTRIBUTION_BASE_URL` are reachable from the NAS
-- Wealthfolio passwords are correct
-- Wealthfolio backup route still responds
+- `MASTER_BASE_URL` is reachable from the NAS
+- `DISTRIBUTION_BASE_URL` is reachable from the NAS
+- both Wealthfolio passwords are correct
 
-### Login page loads but sign-in fails
+### `pull access denied` for `wealthfolio-investor-portal`
 
-Check `portal-app` logs for the init message. If needed, restart `portal-app`; startup will refresh the admin password again from `.env`.
+This means UGOS tried to fetch from a remote registry instead of using your imported local image.
 
-## 10. Optional manual backup-file testing
+Check:
 
-For Mac local testing, the portal already supports reading backup `.db` files directly from absolute paths.
+- the image was imported successfully in **Images**
+- the imported local name exactly matches `PORTAL_APP_IMAGE`
+- `portal-app` has `pull_policy: never`
 
-For NAS deployment, the normal recommended path is still:
+### Wrong architecture image
 
-- use live Wealthfolio login
-- let the portal trigger the official backup route
-
-That keeps the publish flow closest to production.
+If the container cannot start because of CPU architecture mismatch, rebuild the image tar on your Mac with the correct `TARGET_PLATFORM`.

@@ -15,9 +15,10 @@ export const zhCN = {
     sourceCurrency: "原始货币",
   },
   admin: {
-    publishDescription: "手动发布快照，并查看最近的发布记录。",
+    publishDescription: "从 live Wealthfolio instances 或 fallback 本地备份手动发布快照，并查看最近的发布记录。",
     publishPanelTitle: "发布快照",
-    publishPanelDescription: "自动查找最新本地备份，重建 read model，然后原子切换已发布版本。",
+    publishPanelDescription:
+      "Live publish 会自动支持有密码或无密码的 Wealthfolio。留空两个本地备份路径即使用 live mode；填齐两个路径则使用 fallback/debug publish。",
     masterBackupPath: "Master 备份路径",
     distributionBackupPath: "Distribution 备份路径",
     publishLatest: "发布最新快照",

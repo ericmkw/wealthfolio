@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { getAuthenticatedUserFromToken } from "@/lib/auth/server";
+import { resolveMappingLabels } from "@/lib/source-option-labels";
 import { upsertInvestorMapping } from "@/lib/services/admin-service";
+import { getAdminSourceOptions } from "@/lib/services/source-options-service";
 import { investorMappingSchema } from "@/lib/validation/admin";
 
 export async function PUT(request: Request) {
@@ -30,8 +32,25 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const sourceOptions = await getAdminSourceOptions();
+    const labels = resolveMappingLabels(sourceOptions.accounts, sourceOptions.fundAssets, payload.data);
+
+    if (!labels.distributionAccountLabel) {
+      return NextResponse.json({ message: "Selected Distribution account is not available." }, { status: 400 });
+    }
+
+    if (!labels.fundAssetLabel) {
+      return NextResponse.json({ message: "Selected fund asset is not available." }, { status: 400 });
+    }
+
     const investorId = await upsertInvestorMapping(payload.data);
-    return NextResponse.json({ investorId });
+    return NextResponse.json({
+      investorId,
+      distributionAccountId: payload.data.distributionAccountId,
+      distributionAccountLabel: labels.distributionAccountLabel,
+      fundAssetId: payload.data.fundAssetId,
+      fundAssetLabel: labels.fundAssetLabel,
+    });
   } catch (error) {
     if (
       error &&

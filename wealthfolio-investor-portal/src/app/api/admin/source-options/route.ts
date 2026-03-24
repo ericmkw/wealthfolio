@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { getAuthenticatedUserFromToken } from "@/lib/auth/server";
-import { getLocalBackupSources } from "@/lib/services/local-backup-service";
+import { getAdminSourceOptions } from "@/lib/services/source-options-service";
 
 export async function GET(request: Request) {
   const token = request.headers
@@ -20,5 +20,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json(await getLocalBackupSources());
+  return NextResponse.json(await getAdminSourceOptions());
 }
