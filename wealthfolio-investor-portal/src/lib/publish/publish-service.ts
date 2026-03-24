@@ -9,15 +9,18 @@ import {
   investorPerformanceSnapshots,
   investorPositionSnapshots,
   publishRuns,
+  publishedFundHoldings,
   publishedVersions,
   quoteReferenceSnapshots,
   unitPriceSnapshots,
 } from "@/db/schema";
 import { getPortalEnv } from "@/lib/env";
 import { buildInvestorProjection } from "@/lib/publish/distribution-transform";
+import { buildFundHoldingsProjection } from "@/lib/publish/fund-holdings-transform";
 import { readLocalSnapshotFile } from "@/lib/publish/local-snapshot";
 import { extractFundOperationEvents } from "@/lib/publish/master-transform";
 import {
+  readLatestAssetQuoteSnapshots,
   openReadonlySnapshot,
   readDistributionActivities,
   readLatestFundQuoteReferences,
@@ -25,6 +28,7 @@ import {
   readDistributionQuotes,
   readDistributionValuations,
   readLatestDistributionSnapshot,
+  readLatestMasterHoldingsSnapshots,
   readMasterActivityRows,
 } from "@/lib/publish/source-readers";
 import { fetchWealthfolioSnapshot } from "@/lib/publish/wealthfolio-client";
@@ -90,10 +94,32 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
     try {
       const fundOperations = extractFundOperationEvents(readMasterActivityRows(masterDb));
       const uniqueFundAssetIds = [...new Set(mappings.map((mapping) => mapping.fundAssetId))];
+      const latestFxQuotes = readLatestFxQuoteReferences(distributionDb);
       const quoteReferences = [
         ...readLatestFundQuoteReferences(distributionDb, uniqueFundAssetIds),
-        ...readLatestFxQuoteReferences(distributionDb),
+        ...latestFxQuotes,
       ];
+      const masterHoldingsSnapshots = readLatestMasterHoldingsSnapshots(masterDb);
+      const masterHoldingAssetIds = [
+        ...new Set(
+          masterHoldingsSnapshots.flatMap((snapshot) =>
+            snapshot.positions.map((position) => position.assetId),
+          ),
+        ),
+      ];
+      const masterHoldingQuotes = readLatestAssetQuoteSnapshots(masterDb, masterHoldingAssetIds);
+      const fundHoldingsProjection = buildFundHoldingsProjection({
+        baseCurrency: "USD",
+        snapshots: masterHoldingsSnapshots,
+        quotes: masterHoldingQuotes,
+        fxRates: latestFxQuotes
+          .filter((quote) => quote.sourceCurrency && quote.targetCurrency)
+          .map((quote) => ({
+            sourceCurrency: quote.sourceCurrency!,
+            targetCurrency: quote.targetCurrency!,
+            rate: quote.close,
+          })),
+      });
       const investorPayloads = mappings.map((mapping) => {
         const valuations = readDistributionValuations(distributionDb, mapping.distributionAccountId);
         const snapshots = readLatestDistributionSnapshot(distributionDb, mapping.distributionAccountId);
@@ -131,6 +157,25 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
           distributionSnapshotFilename: path.basename(distributionSnapshotPath),
           isCurrent: true,
         });
+
+        if (fundHoldingsProjection.holdings.length) {
+          await tx.insert(publishedFundHoldings).values(
+            fundHoldingsProjection.holdings.map((holding) => ({
+              id: randomUUID(),
+              publishedVersionId,
+              positionKind: holding.positionKind,
+              assetId: holding.assetId,
+              symbol: holding.symbol,
+              assetName: holding.assetName,
+              currency: holding.currency,
+              latestPrice: holding.latestPrice,
+              dayChangePct: holding.dayChangePct,
+              totalReturnPct: holding.totalReturnPct,
+              weightPct: holding.weightPct,
+              sortOrder: holding.sortOrder,
+            })),
+          );
+        }
 
         if (fundOperations.length) {
           await tx.insert(fundOperationEvents).values(
