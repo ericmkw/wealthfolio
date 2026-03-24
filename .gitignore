@@ -94,3 +94,6 @@ apps/tauri/db/
 tasks
 
 .worktrees
+
+!wealthfolio-investor-portal/src/db/
+!wealthfolio-investor-portal/src/db/**
