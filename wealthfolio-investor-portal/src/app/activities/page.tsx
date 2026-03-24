@@ -32,6 +32,7 @@ export default async function ActivitiesPage() {
   const headerMetadata = overview
     ? buildHeaderMetadata({
         locale: preferences.locale,
+        timeZone: preferences.timezone,
         messages,
         sourceCurrency: overview.display.sourceCurrency,
         baseCurrency: overview.display.baseCurrency,
@@ -146,7 +147,7 @@ export default async function ActivitiesPage() {
 
                     return (
                       <TableRow key={event.id}>
-                        <TableCell>{formatDateTime(event.occurredAt, preferences.locale)}</TableCell>
+                        <TableCell>{formatDateTime(event.occurredAt, preferences.locale, preferences.timezone)}</TableCell>
                         <TableCell>
                           <Badge variant={event.activityType}>{event.activityType}</Badge>
                         </TableCell>
@@ -204,7 +205,7 @@ export default async function ActivitiesPage() {
                 {cashflows.cashflows.length ? (
                   cashflows.cashflows.map((event) => (
                     <TableRow key={event.id}>
-                      <TableCell>{formatDateTime(event.occurredAt, preferences.locale)}</TableCell>
+                      <TableCell>{formatDateTime(event.occurredAt, preferences.locale, preferences.timezone)}</TableCell>
                       <TableCell>
                         <Badge variant={event.eventType}>{event.eventType}</Badge>
                       </TableCell>

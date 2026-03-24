@@ -33,6 +33,7 @@ describe("header display", () => {
           locale: "zh-HK",
           theme: "dark",
           baseCurrency: "USD",
+          timezone: "Asia/Hong_Kong",
         },
         isSaving: false,
         labels: {

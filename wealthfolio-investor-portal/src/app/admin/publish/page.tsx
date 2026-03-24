@@ -45,7 +45,11 @@ export default async function AdminPublishPage() {
                   <p className="font-mono text-sm text-[var(--wf-fg)]">{currentVersion.id}</p>
                   <p className="text-sm text-[var(--wf-muted)]">{messages.admin.publishedAt}</p>
                   <p className="text-sm text-[var(--wf-fg)]">
-                    {formatDateTime(currentVersion.createdAt.toISOString(), preferences.locale)}
+                    {formatDateTime(
+                      currentVersion.createdAt.toISOString(),
+                      preferences.locale,
+                      preferences.timezone,
+                    )}
                   </p>
                 </>
               ) : (
@@ -75,7 +79,9 @@ export default async function AdminPublishPage() {
                 {runs.length ? (
                   runs.map((run) => (
                     <TableRow key={run.id}>
-                      <TableCell>{formatDateTime(run.startedAt.toISOString(), preferences.locale)}</TableCell>
+                      <TableCell>
+                        {formatDateTime(run.startedAt.toISOString(), preferences.locale, preferences.timezone)}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={run.status}>{run.status}</Badge>
                       </TableCell>

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ResolvedPreferences } from "@/lib/preferences";
 
 interface HeaderPreferencesProps {
@@ -33,6 +33,10 @@ export function HeaderPreferences({ initialPreferences, labels }: HeaderPreferen
   const router = useRouter();
   const [preferences, setPreferences] = useState(initialPreferences);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setPreferences(initialPreferences);
+  }, [initialPreferences]);
 
   const updatePreferences = async (nextPreferences: ResolvedPreferences) => {
     setPreferences(nextPreferences);
