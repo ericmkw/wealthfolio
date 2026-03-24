@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import {
   fundOperationEvents,
   investorCashflowEvents,
+  publishedFundHoldings,
   publishedVersions,
 } from "@/db/schema";
 import { resolveDisplayMoney } from "@/lib/display-money";
@@ -35,34 +36,68 @@ export async function listFundOperations(userId?: string) {
     .where(eq(fundOperationEvents.publishedVersionId, currentVersionId))
     .orderBy(desc(fundOperationEvents.occurredAt));
 
-  const fxReference = await getFxReference("USD", preferences.baseCurrency);
-
   return {
     display: {
       locale: preferences.locale,
       baseCurrency: preferences.baseCurrency,
-      fxRate: fxReference.rate,
-      fxUpdatedAt: fxReference.quoteDay,
+      fxRate: null,
+      fxUpdatedAt: null,
     },
     activities: events.map((event) => ({
       ...event,
-      displayCurrency: preferences.baseCurrency,
+      displayCurrency: event.currency,
       displayUnitPrice: resolveDisplayMoney({
         value: event.unitPrice,
         sourceCurrency: event.currency,
         baseCurrency: preferences.baseCurrency,
-        rate: fxReference.rate,
+        rate: null,
         mode: "preserve-source",
       }).value,
       displayUnitPriceCurrency: resolveDisplayMoney({
         value: event.unitPrice,
         sourceCurrency: event.currency,
         baseCurrency: preferences.baseCurrency,
-        rate: fxReference.rate,
+        rate: null,
         mode: "preserve-source",
       }).currency,
-      displayFee:
-        preferences.baseCurrency === event.currency ? event.fee : convertMoneyValue(event.fee, fxReference.rate),
+      displayFee: event.fee,
+      displayFeeCurrency: event.currency,
+    })),
+  };
+}
+
+export async function listFundHoldings(userId?: string) {
+  const currentVersionId = await getCurrentVersionId();
+  if (!currentVersionId) {
+    return {
+      display: null,
+      holdings: [],
+      composition: [],
+    };
+  }
+
+  const preferences = await getResolvedPreferences(userId);
+  const rows = await db
+    .select()
+    .from(publishedFundHoldings)
+    .where(eq(publishedFundHoldings.publishedVersionId, currentVersionId))
+    .orderBy(publishedFundHoldings.sortOrder);
+  const holdings = rows.map((row) => ({
+    ...row,
+    positionKind: row.positionKind === "cash" ? "cash" : "security",
+  })) as Array<(typeof rows)[number] & { positionKind: "security" | "cash" }>;
+
+  return {
+    display: {
+      locale: preferences.locale,
+      baseCurrency: preferences.baseCurrency,
+    },
+    holdings,
+    composition: holdings.map((row) => ({
+      key: row.assetId ?? `${row.positionKind}:${row.assetName}`,
+      label: row.symbol ? `${row.symbol} · ${row.assetName}` : row.assetName,
+      weightPct: row.weightPct,
+      positionKind: row.positionKind,
     })),
   };
 }

@@ -100,8 +100,8 @@ npm run dev
 
 ## Notes
 
-- `Master` contributes only fund operation metadata
+- `Master` contributes fund operation metadata and redacted holdings-composition metrics
 - `Distribution` contributes investor NAV, units, performance, and personal cashflows
-- Shares, total value, and position size are never exposed in the fund activity UI or API
+- Shares, total value, dollar P&L, and position size are never exposed in the fund activity UI or API
 - For local testing on your Mac, `/admin/publish` also accepts absolute backup `.db` paths directly if the Node process can read them
 - For UGOS Pro / NAS deployment, see `docs/deploy-ugos-pro-nas.md`

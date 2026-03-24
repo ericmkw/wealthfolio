@@ -35,9 +35,12 @@ describe("display money rules", () => {
 });
 
 describe("updated copy", () => {
-  it("uses fund wording and simpler NAV history wording", () => {
+  it("uses fund wording, holdings labels, and simpler NAV history wording", () => {
     expect(zhHK.overview.performanceHistoryDescription).toBe("你的 NAV 記錄");
     expect(zhHK.overview.unitPriceHistoryDescription).toBe("你嘅 fund 報價紀錄。");
     expect(zhHK.activities.assetName).toBe("股票名");
+    expect(zhHK.activities.fundHoldings).toBe("基金持倉");
+    expect(zhHK.activities.position).toBe("倉位");
+    expect(zhHK.activities.holdingComposition).toBe("持倉組合");
   });
 });
