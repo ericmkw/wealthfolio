@@ -15,10 +15,11 @@ export const en = {
     sourceCurrency: "Source Currency",
   },
   admin: {
-    publishDescription: "Trigger manual snapshot publication and audit recent publish runs.",
+    publishDescription:
+      "Trigger manual snapshot publication from live Wealthfolio instances or fallback local backup files.",
     publishPanelTitle: "Publish Snapshot",
     publishPanelDescription:
-      "Auto-detect the latest local backups, rebuild the read model, then atomically switch the published version.",
+      "Live publish supports Wealthfolio instances with or without a password. Leave local backup paths empty for live mode, or fill both paths for fallback/debug publish.",
     masterBackupPath: "Master Backup Path",
     distributionBackupPath: "Distribution Backup Path",
     publishLatest: "Publish Latest Snapshot",

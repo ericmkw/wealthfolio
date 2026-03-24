@@ -9,6 +9,8 @@ import {
   investorPerformanceSnapshots,
   investorPositionSnapshots,
   publishRuns,
+  publishedDistributionAccounts,
+  publishedDistributionAssets,
   publishedVersions,
   quoteReferenceSnapshots,
   unitPriceSnapshots,
@@ -19,7 +21,9 @@ import { readLocalSnapshotFile } from "@/lib/publish/local-snapshot";
 import { extractFundOperationEvents } from "@/lib/publish/master-transform";
 import {
   openReadonlySnapshot,
+  readDistributionAccounts,
   readDistributionActivities,
+  readDistributionFundAssets,
   readLatestFundQuoteReferences,
   readLatestFxQuoteReferences,
   readDistributionQuotes,
@@ -39,10 +43,6 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
   const runId = randomUUID();
   const env = getPortalEnv();
   const mappings = await listInvestorMappingsForPublish();
-
-  if (!mappings.length) {
-    throw new Error("No investor mappings configured.");
-  }
 
   await db.insert(publishRuns).values({
     id: runId,
@@ -68,8 +68,8 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
     publishDir = path.join(env.PUBLISH_TMP_DIR, runId);
     await fs.mkdir(publishDir, { recursive: true });
 
-    masterSnapshotPath = path.join(publishDir, masterSnapshot.filename);
-    distributionSnapshotPath = path.join(publishDir, distributionSnapshot.filename);
+    masterSnapshotPath = path.join(publishDir, `master-${masterSnapshot.filename}`);
+    distributionSnapshotPath = path.join(publishDir, `distribution-${distributionSnapshot.filename}`);
 
     await Promise.all([
       fs.writeFile(masterSnapshotPath, masterSnapshot.bytes),
@@ -89,6 +89,8 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
 
     try {
       const fundOperations = extractFundOperationEvents(readMasterActivityRows(masterDb));
+      const distributionAccounts = readDistributionAccounts(distributionDb);
+      const distributionFundAssets = readDistributionFundAssets(distributionDb);
       const uniqueFundAssetIds = [...new Set(mappings.map((mapping) => mapping.fundAssetId))];
       const quoteReferences = [
         ...readLatestFundQuoteReferences(distributionDb, uniqueFundAssetIds),
@@ -127,10 +129,32 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
 
         await tx.insert(publishedVersions).values({
           id: publishedVersionId,
-          masterSnapshotFilename: path.basename(masterSnapshotPath),
-          distributionSnapshotFilename: path.basename(distributionSnapshotPath),
+          masterSnapshotFilename: masterSnapshot.filename,
+          distributionSnapshotFilename: distributionSnapshot.filename,
           isCurrent: true,
         });
+
+        if (distributionAccounts.length) {
+          await tx.insert(publishedDistributionAccounts).values(
+            distributionAccounts.map((account) => ({
+              id: randomUUID(),
+              publishedVersionId,
+              accountId: account.id,
+              accountName: account.label,
+            })),
+          );
+        }
+
+        if (distributionFundAssets.length) {
+          await tx.insert(publishedDistributionAssets).values(
+            distributionFundAssets.map((asset) => ({
+              id: randomUUID(),
+              publishedVersionId,
+              assetId: asset.id,
+              label: asset.label,
+            })),
+          );
+        }
 
         if (fundOperations.length) {
           await tx.insert(fundOperationEvents).values(

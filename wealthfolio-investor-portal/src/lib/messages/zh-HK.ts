@@ -15,9 +15,10 @@ export const zhHK = {
     sourceCurrency: "原始貨幣",
   },
   admin: {
-    publishDescription: "手動發佈快照，並檢查最近嘅發佈紀錄。",
+    publishDescription: "由 live Wealthfolio instances 或 fallback 本機備份手動發佈快照，並檢查最近嘅發佈紀錄。",
     publishPanelTitle: "發佈快照",
-    publishPanelDescription: "自動搵最新本機備份，重建 read model，再原子切換已發佈版本。",
+    publishPanelDescription:
+      "Live publish 會自動支援有密碼或無密碼嘅 Wealthfolio。留空兩個本機備份路徑即用 live mode；填齊兩個路徑就用 fallback/debug publish。",
     masterBackupPath: "Master 備份路徑",
     distributionBackupPath: "Distribution 備份路徑",
     publishLatest: "發佈最新快照",
