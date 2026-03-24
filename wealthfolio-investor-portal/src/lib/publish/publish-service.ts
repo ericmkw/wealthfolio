@@ -48,10 +48,6 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
   const env = getPortalEnv();
   const mappings = await listInvestorMappingsForPublish();
 
-  if (!mappings.length) {
-    throw new Error("No investor mappings configured.");
-  }
-
   await db.insert(publishRuns).values({
     id: runId,
     status: "running",
@@ -76,8 +72,8 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
     publishDir = path.join(env.PUBLISH_TMP_DIR, runId);
     await fs.mkdir(publishDir, { recursive: true });
 
-    masterSnapshotPath = path.join(publishDir, masterSnapshot.filename);
-    distributionSnapshotPath = path.join(publishDir, distributionSnapshot.filename);
+    masterSnapshotPath = path.join(publishDir, `master-${masterSnapshot.filename}`);
+    distributionSnapshotPath = path.join(publishDir, `distribution-${distributionSnapshot.filename}`);
 
     await Promise.all([
       fs.writeFile(masterSnapshotPath, masterSnapshot.bytes),
@@ -159,8 +155,8 @@ export async function runPublishPipeline(options: PublishPipelineOptions = {}) {
 
         await tx.insert(publishedVersions).values({
           id: publishedVersionId,
-          masterSnapshotFilename: path.basename(masterSnapshotPath),
-          distributionSnapshotFilename: path.basename(distributionSnapshotPath),
+          masterSnapshotFilename: masterSnapshot.filename,
+          distributionSnapshotFilename: distributionSnapshot.filename,
           isCurrent: true,
         });
 

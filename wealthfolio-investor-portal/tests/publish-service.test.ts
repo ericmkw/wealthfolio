@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => {
     extractFundOperationEvents: vi.fn(),
     readDistributionAccounts: vi.fn(),
     readDistributionFundAssets: vi.fn(),
+    readLatestMasterHoldingsSnapshots: vi.fn(),
+    readLatestAssetQuoteSnapshots: vi.fn(),
     readLatestFundQuoteReferences: vi.fn(),
     readLatestFxQuoteReferences: vi.fn(),
     readDistributionValuations: vi.fn(),
@@ -33,6 +35,7 @@ const mocks = vi.hoisted(() => {
     readDistributionQuotes: vi.fn(),
     readDistributionActivities: vi.fn(),
     buildInvestorProjection: vi.fn(),
+    buildFundHoldingsProjection: vi.fn(),
     getPortalEnv: vi.fn(),
   };
 });
@@ -70,6 +73,8 @@ vi.mock("@/lib/publish/source-readers", () => ({
   readMasterActivityRows: mocks.readMasterActivityRows,
   readDistributionAccounts: mocks.readDistributionAccounts,
   readDistributionFundAssets: mocks.readDistributionFundAssets,
+  readLatestMasterHoldingsSnapshots: mocks.readLatestMasterHoldingsSnapshots,
+  readLatestAssetQuoteSnapshots: mocks.readLatestAssetQuoteSnapshots,
   readLatestFundQuoteReferences: mocks.readLatestFundQuoteReferences,
   readLatestFxQuoteReferences: mocks.readLatestFxQuoteReferences,
   readDistributionValuations: mocks.readDistributionValuations,
@@ -84,6 +89,10 @@ vi.mock("@/lib/publish/master-transform", () => ({
 
 vi.mock("@/lib/publish/distribution-transform", () => ({
   buildInvestorProjection: mocks.buildInvestorProjection,
+}));
+
+vi.mock("@/lib/publish/fund-holdings-transform", () => ({
+  buildFundHoldingsProjection: mocks.buildFundHoldingsProjection,
 }));
 
 import { runPublishPipeline } from "@/lib/publish/publish-service";
@@ -104,6 +113,8 @@ describe("runPublishPipeline", () => {
     mocks.extractFundOperationEvents.mockReset();
     mocks.readDistributionAccounts.mockReset();
     mocks.readDistributionFundAssets.mockReset();
+    mocks.readLatestMasterHoldingsSnapshots.mockReset();
+    mocks.readLatestAssetQuoteSnapshots.mockReset();
     mocks.readLatestFundQuoteReferences.mockReset();
     mocks.readLatestFxQuoteReferences.mockReset();
     mocks.readDistributionValuations.mockReset();
@@ -111,6 +122,7 @@ describe("runPublishPipeline", () => {
     mocks.readDistributionQuotes.mockReset();
     mocks.readDistributionActivities.mockReset();
     mocks.buildInvestorProjection.mockReset();
+    mocks.buildFundHoldingsProjection.mockReset();
     mocks.getPortalEnv.mockReset();
 
     mocks.getPortalEnv.mockReturnValue({
@@ -154,8 +166,14 @@ describe("runPublishPipeline", () => {
     mocks.extractFundOperationEvents.mockReturnValue([]);
     mocks.readDistributionAccounts.mockReturnValue([{ id: "acct-1", label: "KHM_USD" }]);
     mocks.readDistributionFundAssets.mockReturnValue([{ id: "fund-1", label: "RICHUSD - Family Fund" }]);
+    mocks.readLatestMasterHoldingsSnapshots.mockReturnValue([]);
+    mocks.readLatestAssetQuoteSnapshots.mockReturnValue([]);
     mocks.readLatestFundQuoteReferences.mockReturnValue([]);
     mocks.readLatestFxQuoteReferences.mockReturnValue([]);
+    mocks.buildFundHoldingsProjection.mockReturnValue({
+      holdings: [],
+      composition: [],
+    });
   });
 
   it("publishes source metadata even when investor mappings are not configured yet", async () => {
