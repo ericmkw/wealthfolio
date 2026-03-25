@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { formatPortalDate, formatPortalDateTime } from "@/lib/timezone";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,31 +36,10 @@ export function formatMoney(value: string | null | undefined, currency = "USD", 
   return formatted;
 }
 
-export function formatDateTime(value: string, locale = "en-US") {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(parsed);
+export function formatDateTime(value: string, locale = "en-US", timeZone?: string | null) {
+  return formatPortalDateTime(value, locale, timeZone);
 }
 
-export function formatDate(value: string, locale = "en-US") {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(parsed);
+export function formatDate(value: string, locale = "en-US", timeZone?: string | null) {
+  return formatPortalDate(value, locale, timeZone);
 }

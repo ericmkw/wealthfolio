@@ -9,12 +9,21 @@ IMAGE_NAME="${IMAGE_NAME:-wealthfolio-investor-portal:latest}"
 OUTPUT_PATH="${OUTPUT_PATH:-${APP_DIR}/dist/wealthfolio-investor-portal-latest.tar}"
 TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
 NAS_COPY_DIR="${NAS_COPY_DIR:-/Volumes/docker/wealthfolio-investor-portal-1}"
+APP_VERSION="${APP_VERSION:-$(cd "${APP_DIR}" && node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")}"
+APP_BUILD_COMMIT="${APP_BUILD_COMMIT:-$(git -C "${APP_DIR}" rev-parse --short=8 HEAD)}"
+APP_BUILD_TIME="${APP_BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 
 mkdir -p "$(dirname "${OUTPUT_PATH}")"
 
 echo "[export] building ${IMAGE_NAME} for ${TARGET_PLATFORM}"
+echo "[export] version ${APP_VERSION}"
+echo "[export] commit ${APP_BUILD_COMMIT}"
+echo "[export] built at ${APP_BUILD_TIME}"
 docker build \
   --platform "${TARGET_PLATFORM}" \
+  --build-arg "APP_VERSION=${APP_VERSION}" \
+  --build-arg "APP_BUILD_COMMIT=${APP_BUILD_COMMIT}" \
+  --build-arg "APP_BUILD_TIME=${APP_BUILD_TIME}" \
   --tag "${IMAGE_NAME}" \
   "${APP_DIR}"
 

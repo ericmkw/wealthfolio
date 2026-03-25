@@ -10,6 +10,7 @@ interface HeaderMessages {
 
 export function buildHeaderMetadata(args: {
   locale: string;
+  timeZone?: string | null;
   messages: HeaderMessages;
   sourceCurrency: string;
   baseCurrency: string;
@@ -24,11 +25,19 @@ export function buildHeaderMetadata(args: {
   }
 
   if (args.fxUpdatedAt) {
-    items.push(`${args.messages.common.fxUpdatedAt}：${formatDate(args.fxUpdatedAt, args.locale)}`);
+    items.push(
+      `${args.messages.common.fxUpdatedAt}：${formatDate(args.fxUpdatedAt, args.locale, args.timeZone)}`,
+    );
   }
 
   if (args.quoteUpdatedAt) {
-    items.push(`${args.messages.common.quoteUpdatedAt}：${formatDate(args.quoteUpdatedAt, args.locale)}`);
+    items.push(
+      `${args.messages.common.quoteUpdatedAt}：${formatDate(
+        args.quoteUpdatedAt,
+        args.locale,
+        args.timeZone,
+      )}`,
+    );
   }
 
   return items;

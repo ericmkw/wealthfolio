@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const badgeStyles: Record<string, string> = {
-  BUY: "border-lime-400 bg-lime-300 text-lime-950 dark:border-lime-500/20 dark:bg-lime-500/15 dark:text-lime-300",
+  BUY: "border-lime-200 bg-lime-100 text-green-700 dark:border-lime-500/20 dark:bg-lime-500/15 dark:text-lime-300",
   SELL: "border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300",
   DIVIDEND:
     "border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300",
@@ -30,6 +30,10 @@ const badgeStyles: Record<string, string> = {
     "border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-500/20 dark:bg-violet-500/15 dark:text-violet-300",
   investor:
     "border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300",
+  active:
+    "border-lime-200 bg-lime-100 text-lime-800 dark:border-lime-500/20 dark:bg-lime-500/15 dark:text-lime-300",
+  inactive:
+    "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
 };
 
 export function getBadgeClassName(variant: string) {

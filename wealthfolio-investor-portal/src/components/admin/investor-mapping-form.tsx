@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,84 +8,90 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getMessages } from "@/lib/i18n";
 import type { AppLocale } from "@/lib/preferences";
+import type { SourceOption } from "@/lib/source-option-labels";
 
-interface SourceOption {
-  id: string;
-  label: string;
+export interface InvestorFormValues {
+  investorId?: string;
+  name: string;
+  username: string;
+  email: string;
+  password: string;
+  distributionAccountId: string;
+  fundAssetId: string;
 }
 
-interface SourceOptionsResponse {
-  accounts: SourceOption[];
-  fundAssets: SourceOption[];
+interface InvestorMappingFormProps {
+  locale: AppLocale;
+  mode?: "create" | "edit";
+  initialValues?: Partial<InvestorFormValues> | null;
+  sourceOptions: {
+    accounts: SourceOption[];
+    fundAssets: SourceOption[];
+  };
+  onSaved?: () => void;
+  onCancel?: () => void;
 }
 
-interface MappingSaveResponse {
-  distributionAccountLabel?: string;
-  fundAssetLabel?: string;
+interface SaveInvestorResponse {
+  message?: string;
+  investorId?: string;
 }
 
 const selectClassName =
   "flex h-11 w-full rounded-md border border-[var(--wf-border)] bg-[var(--wf-card)] px-3 py-2 text-sm text-[var(--wf-fg)] outline-none focus:border-[var(--wf-accent)]";
 
-export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
+function buildFormState(initialValues?: Partial<InvestorFormValues> | null): InvestorFormValues {
+  return {
+    investorId: initialValues?.investorId,
+    name: initialValues?.name ?? "",
+    username: initialValues?.username ?? "",
+    email: initialValues?.email ?? "",
+    password: "",
+    distributionAccountId: initialValues?.distributionAccountId ?? "",
+    fundAssetId: initialValues?.fundAssetId ?? "",
+  };
+}
+
+export function InvestorMappingForm({
+  locale,
+  mode = "create",
+  initialValues,
+  sourceOptions,
+  onSaved,
+  onCancel,
+}: InvestorMappingFormProps) {
   const router = useRouter();
   const messages = getMessages(locale);
-  const [form, setForm] = useState({
-    name: "",
-    username: "",
-    email: "",
-    password: "",
-    distributionAccountId: "",
-    fundAssetId: "",
-  });
+  const isEditMode = mode === "edit";
+  const [form, setForm] = useState(() => buildFormState(initialValues));
   const [accountSearch, setAccountSearch] = useState("");
   const [assetSearch, setAssetSearch] = useState("");
-  const [accounts, setAccounts] = useState<SourceOption[]>([]);
-  const [fundAssets, setFundAssets] = useState<SourceOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadOptions = async () => {
-      const response = await fetch("/api/admin/source-options");
-      if (!response.ok) {
-        return;
-      }
-
-      const body = (await response.json()) as SourceOptionsResponse;
-      if (cancelled) {
-        return;
-      }
-
-      setAccounts(body.accounts);
-      setFundAssets(body.fundAssets);
-    };
-
-    void loadOptions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setForm(buildFormState(initialValues));
+    setAccountSearch("");
+    setAssetSearch("");
+    setError(null);
+  }, [initialValues, mode]);
 
   const filteredAccounts = useMemo(() => {
     const query = accountSearch.trim().toLowerCase();
     return query
-      ? accounts.filter((account) => account.label.toLowerCase().includes(query))
-      : accounts;
-  }, [accountSearch, accounts]);
+      ? sourceOptions.accounts.filter((account) => account.label.toLowerCase().includes(query))
+      : sourceOptions.accounts;
+  }, [accountSearch, sourceOptions.accounts]);
 
   const filteredFundAssets = useMemo(() => {
     const query = assetSearch.trim().toLowerCase();
     return query
-      ? fundAssets.filter((asset) => asset.label.toLowerCase().includes(query))
-      : fundAssets;
-  }, [assetSearch, fundAssets]);
+      ? sourceOptions.fundAssets.filter((asset) => asset.label.toLowerCase().includes(query))
+      : sourceOptions.fundAssets;
+  }, [assetSearch, sourceOptions.fundAssets]);
 
-  const updateField = (field: keyof typeof form, value: string) => {
+  const updateField = (field: keyof InvestorFormValues, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -95,12 +101,31 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
     setSavedMessage(null);
     setIsSaving(true);
 
+    const payload = isEditMode
+      ? {
+          investorId: form.investorId,
+          name: form.name,
+          username: form.username,
+          email: form.email,
+          password: form.password,
+          distributionAccountId: form.distributionAccountId,
+          fundAssetId: form.fundAssetId,
+        }
+      : {
+          name: form.name,
+          username: form.username,
+          email: form.email,
+          password: form.password,
+          distributionAccountId: form.distributionAccountId,
+          fundAssetId: form.fundAssetId,
+        };
+
     const response = await fetch("/api/admin/investor-account-mappings", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -110,32 +135,30 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
       return;
     }
 
-    const body = (await response.json().catch(() => null)) as MappingSaveResponse | null;
+    await response.json().catch(() => null as SaveInvestorResponse | null);
+    setSavedMessage(isEditMode ? messages.admin.investorUpdated : messages.admin.investorCreated);
 
-    setForm({
-      name: "",
-      username: "",
-      email: "",
-      password: "",
-      distributionAccountId: "",
-      fundAssetId: "",
-    });
-    setAccountSearch("");
-    setAssetSearch("");
-    setSavedMessage(
-      body?.distributionAccountLabel && body?.fundAssetLabel
-        ? `Saved mapping: ${body.distributionAccountLabel} / ${body.fundAssetLabel}`
-        : "Investor mapping saved.",
-    );
-    router.refresh();
+    if (!isEditMode) {
+      setForm(buildFormState(null));
+      setAccountSearch("");
+      setAssetSearch("");
+    }
+
+    if (onSaved) {
+      onSaved();
+    } else {
+      router.refresh();
+    }
     setIsSaving(false);
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{messages.admin.addOrUpdateInvestorTitle}</CardTitle>
-        <CardDescription>{messages.admin.addOrUpdateInvestorDescription}</CardDescription>
+        <CardTitle>{isEditMode ? messages.admin.editInvestorTitle : messages.admin.createInvestorTitle}</CardTitle>
+        <CardDescription>
+          {isEditMode ? messages.admin.editInvestorDescription : messages.admin.createInvestorDescription}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
@@ -162,11 +185,12 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
             <Input
               id="password"
               type="password"
-              minLength={1}
+              minLength={isEditMode ? undefined : 1}
+              required={!isEditMode}
               value={form.password}
               onChange={(event) => updateField("password", event.target.value)}
-              required
             />
+            {isEditMode ? <p className="text-xs text-[var(--wf-muted)]">{messages.admin.passwordOptionalHint}</p> : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="accountSearch">{messages.admin.searchDistributionAccount}</Label>
@@ -179,7 +203,7 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="distributionAccountId">{messages.admin.distributionAccount}</Label>
-            {accounts.length ? (
+            {sourceOptions.accounts.length ? (
               <select
                 id="distributionAccountId"
                 className={selectClassName}
@@ -214,7 +238,7 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="fundAssetId">{messages.admin.fundAsset}</Label>
-            {fundAssets.length ? (
+            {sourceOptions.fundAssets.length ? (
               <select
                 id="fundAssetId"
                 className={selectClassName}
@@ -240,10 +264,30 @@ export function InvestorMappingForm({ locale }: { locale: AppLocale }) {
           </div>
           {error ? <p className="md:col-span-2 text-sm text-rose-300">{error}</p> : null}
           {savedMessage ? <p className="md:col-span-2 text-sm text-emerald-300">{savedMessage}</p> : null}
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 flex flex-wrap gap-2">
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? messages.admin.savingInvestor : messages.admin.saveInvestor}
+              {isSaving
+                ? messages.admin.savingInvestor
+                : isEditMode
+                  ? messages.admin.updateInvestor
+                  : messages.admin.createInvestor}
             </Button>
+            {isEditMode ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSaving}
+                onClick={() => {
+                  setForm(buildFormState(null));
+                  setAccountSearch("");
+                  setAssetSearch("");
+                  setError(null);
+                  onCancel?.();
+                }}
+              >
+                {messages.admin.cancelEditInvestor}
+              </Button>
+            ) : null}
           </div>
         </form>
       </CardContent>

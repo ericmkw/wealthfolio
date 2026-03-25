@@ -16,6 +16,7 @@ export default async function OverviewPage() {
   const headerMetadata = overview
     ? buildHeaderMetadata({
         locale: preferences.locale,
+        timeZone: preferences.timezone,
         messages,
         sourceCurrency: overview.display.sourceCurrency,
         baseCurrency: overview.display.baseCurrency,
@@ -81,7 +82,9 @@ export default async function OverviewPage() {
                     key={point.id}
                     className="flex items-center justify-between rounded-xl border border-[var(--wf-border)] bg-[var(--wf-soft)] px-4 py-3"
                   >
-                    <span className="text-sm text-[var(--wf-muted)]">{formatDate(point.valuationDate, preferences.locale)}</span>
+                    <span className="text-sm text-[var(--wf-muted)]">
+                      {formatDate(point.valuationDate, preferences.locale, preferences.timezone)}
+                    </span>
                     <span className="font-medium">{formatMoney(point.displayNav, overview.display.baseCurrency, preferences.locale)}</span>
                   </div>
                 ))
@@ -103,7 +106,9 @@ export default async function OverviewPage() {
                     key={point.id}
                     className="flex items-center justify-between rounded-xl border border-[var(--wf-border)] bg-[var(--wf-soft)] px-4 py-3"
                   >
-                    <span className="text-sm text-[var(--wf-muted)]">{formatDate(point.quoteDay, preferences.locale)}</span>
+                    <span className="text-sm text-[var(--wf-muted)]">
+                      {formatDate(point.quoteDay, preferences.locale, preferences.timezone)}
+                    </span>
                     <Badge variant="subscription">
                       {formatMoney(point.displayUnitPrice, point.displayUnitPriceCurrency, preferences.locale)}
                     </Badge>

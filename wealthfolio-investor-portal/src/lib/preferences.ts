@@ -1,21 +1,25 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { appSettings, userPreferences } from "@/db/schema";
+import { canonicalizeTimeZone, DEFAULT_TIMEZONE } from "@/lib/timezone";
 
 export type AppLocale = "en" | "zh-HK" | "zh-CN";
 export type AppTheme = "dark" | "light";
 export type BaseCurrency = "USD" | "HKD";
+export type AppTimezone = string;
 
 export interface ResolvedPreferences {
   locale: AppLocale;
   theme: AppTheme;
   baseCurrency: BaseCurrency;
+  timezone: AppTimezone;
 }
 
 const DEFAULT_PREFERENCES: ResolvedPreferences = {
   locale: "zh-HK",
   theme: "dark",
   baseCurrency: "USD",
+  timezone: DEFAULT_TIMEZONE,
 };
 
 export async function getAppDefaults(): Promise<ResolvedPreferences> {
@@ -28,6 +32,7 @@ export async function getAppDefaults(): Promise<ResolvedPreferences> {
     locale: settings.defaultLocale,
     theme: settings.defaultTheme,
     baseCurrency: settings.defaultBaseCurrency,
+    timezone: canonicalizeTimeZone(settings.defaultTimezone) ?? DEFAULT_TIMEZONE,
   };
 }
 
@@ -47,6 +52,7 @@ export async function getResolvedPreferences(userId?: string | null): Promise<Re
     locale: preferences?.locale ?? defaults.locale,
     theme: preferences?.theme ?? defaults.theme,
     baseCurrency: preferences?.baseCurrency ?? defaults.baseCurrency,
+    timezone: canonicalizeTimeZone(preferences?.timezone) ?? defaults.timezone,
   };
 }
 
@@ -61,6 +67,7 @@ export async function setUserPreferences(
       locale: input.locale,
       theme: input.theme,
       baseCurrency: input.baseCurrency,
+      timezone: canonicalizeTimeZone(input.timezone) ?? DEFAULT_TIMEZONE,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -69,6 +76,7 @@ export async function setUserPreferences(
         locale: input.locale,
         theme: input.theme,
         baseCurrency: input.baseCurrency,
+        timezone: canonicalizeTimeZone(input.timezone) ?? DEFAULT_TIMEZONE,
         updatedAt: new Date(),
       },
     });

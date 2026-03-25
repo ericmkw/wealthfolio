@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { getAuthenticatedUserFromToken } from "@/lib/auth/server";
-import { resolveMappingLabels } from "@/lib/source-option-labels";
-import { upsertInvestorMapping } from "@/lib/services/admin-service";
+import {
+  AdminInvestorError,
+  createInvestorMapping,
+  updateInvestorMapping,
+} from "@/lib/services/admin-service";
 import { getAdminSourceOptions } from "@/lib/services/source-options-service";
-import { investorMappingSchema } from "@/lib/validation/admin";
+import { createInvestorSchema, updateInvestorSchema } from "@/lib/validation/admin";
 
-export async function PUT(request: Request) {
+async function authenticateAdmin(request: Request) {
   const token = request.headers
     .get("cookie")
     ?.split(";")
@@ -15,15 +18,79 @@ export async function PUT(request: Request) {
     ?.split("=")[1];
 
   if (!token) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return { status: 401 as const };
   }
 
   const user = await getAuthenticatedUserFromToken(token);
   if (!user || user.role !== "admin") {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    return { status: 403 as const };
   }
 
-  const payload = investorMappingSchema.safeParse(await request.json().catch(() => null));
+  return { status: 200 as const, user };
+}
+
+export async function PUT(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth.status !== 200) {
+    return NextResponse.json(
+      { message: auth.status === 401 ? "Unauthorized" : "Forbidden" },
+      { status: auth.status },
+    );
+  }
+
+  const rawPayload = await request.json().catch(() => null);
+  const isUpdatePayload =
+    !!rawPayload &&
+    typeof rawPayload === "object" &&
+    "investorId" in rawPayload &&
+    typeof rawPayload.investorId === "string" &&
+    rawPayload.investorId.length > 0;
+  if (isUpdatePayload) {
+    const payload = updateInvestorSchema.safeParse(rawPayload);
+
+    if (!payload.success) {
+      return NextResponse.json(
+        { message: payload.error.issues[0]?.message ?? "Invalid investor mapping payload." },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const sourceOptions = await getAdminSourceOptions();
+      const hasDistributionAccount = sourceOptions.accounts.some(
+        (account) => account.id === payload.data.distributionAccountId,
+      );
+      const hasFundAsset = sourceOptions.fundAssets.some((asset) => asset.id === payload.data.fundAssetId);
+
+      if (!hasDistributionAccount) {
+        return NextResponse.json({ message: "Selected Distribution account is not available." }, { status: 400 });
+      }
+
+      if (!hasFundAsset) {
+        return NextResponse.json({ message: "Selected fund asset is not available." }, { status: 400 });
+      }
+
+      const investorId = await updateInvestorMapping(payload.data);
+
+      return NextResponse.json({
+        investorId,
+      });
+    } catch (error) {
+      if (error instanceof AdminInvestorError) {
+        return NextResponse.json({ message: error.message }, { status: error.status });
+      }
+
+      return NextResponse.json(
+        {
+          message: error instanceof Error ? error.message : "Unable to save investor mapping.",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  const payload = createInvestorSchema.safeParse(rawPayload);
+
   if (!payload.success) {
     return NextResponse.json(
       { message: payload.error.issues[0]?.message ?? "Invalid investor mapping payload." },
@@ -33,35 +100,27 @@ export async function PUT(request: Request) {
 
   try {
     const sourceOptions = await getAdminSourceOptions();
-    const labels = resolveMappingLabels(sourceOptions.accounts, sourceOptions.fundAssets, payload.data);
+    const hasDistributionAccount = sourceOptions.accounts.some(
+      (account) => account.id === payload.data.distributionAccountId,
+    );
+    const hasFundAsset = sourceOptions.fundAssets.some((asset) => asset.id === payload.data.fundAssetId);
 
-    if (!labels.distributionAccountLabel) {
+    if (!hasDistributionAccount) {
       return NextResponse.json({ message: "Selected Distribution account is not available." }, { status: 400 });
     }
 
-    if (!labels.fundAssetLabel) {
+    if (!hasFundAsset) {
       return NextResponse.json({ message: "Selected fund asset is not available." }, { status: 400 });
     }
 
-    const investorId = await upsertInvestorMapping(payload.data);
+    const investorId = await createInvestorMapping(payload.data);
+
     return NextResponse.json({
       investorId,
-      distributionAccountId: payload.data.distributionAccountId,
-      distributionAccountLabel: labels.distributionAccountLabel,
-      fundAssetId: payload.data.fundAssetId,
-      fundAssetLabel: labels.fundAssetLabel,
     });
   } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "cause" in error &&
-      error.cause &&
-      typeof error.cause === "object" &&
-      "code" in error.cause &&
-      error.cause.code === "23505"
-    ) {
-      return NextResponse.json({ message: "Email already exists." }, { status: 409 });
+    if (error instanceof AdminInvestorError) {
+      return NextResponse.json({ message: error.message }, { status: error.status });
     }
 
     return NextResponse.json(

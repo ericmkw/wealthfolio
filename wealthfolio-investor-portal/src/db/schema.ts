@@ -79,6 +79,7 @@ export const appSettings = pgTable("app_settings", {
   defaultLocale: appLocaleEnum("default_locale").notNull(),
   defaultTheme: appThemeEnum("default_theme").notNull(),
   defaultBaseCurrency: baseCurrencyEnum("default_base_currency").notNull(),
+  defaultTimezone: text("default_timezone").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -89,6 +90,7 @@ export const userPreferences = pgTable("user_preferences", {
   locale: appLocaleEnum("locale"),
   theme: appThemeEnum("theme"),
   baseCurrency: baseCurrencyEnum("base_currency"),
+  timezone: text("timezone"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
